@@ -1,6 +1,6 @@
 package main
 
-//import "C"
+import "C"
 import (
 	"flag"
 	"fmt"
@@ -737,7 +737,7 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 			} else {
 				fmt.Println("command: ", Quotadetails)
 				fmt.Println("Quota exists: ", Quotadetails.Stdout)
-				fmt.Println("Updating Org")
+				fmt.Println("Updating Quota")
 
 				if Quotas.Quota[i].AllowPaidPlans == true {
 					cmd = exec.Command("cf", "update-quota", Quotas.Quota[i].Name, "-m", MemLimit, "-i", "-1", "-r", "-1", "-s",  SerLimit, "-a", AppLimt, "--allow-paid-service-plans")
