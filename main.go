@@ -1,5 +1,6 @@
 package main
 
+import "C"
 import (
 	"flag"
 	"fmt"
@@ -33,6 +34,7 @@ type Orglist struct {
 		} `yaml:"OrgUsers"`
 		Spaces []struct {
 			Name       string `yaml:"Name"`
+			IsolationSeg string `"IsolationSeg"`
 			SpaceUsers struct {
 				LDAP []struct {
 					Name string `yaml:"Name"`
@@ -54,6 +56,9 @@ type Quotalist struct {
 	Quota []struct {
 		Name        string `yaml:"Name"`
 		MemoryLimit string `yaml:"memory_limit"`
+		AllowPaidPlans       bool `yaml:"allow_paid_plans"`
+		AppInstanceLimit     int `yaml:"app_instance_limit"`
+		ServiceInstanceLimit int `yaml:"service_instance_limit"`
 	} `yaml:"quota"`
 }
 type ProtectedList struct {
@@ -180,7 +185,6 @@ func main()  {
 		fmt.Println("Provide Valid input operation")
 	}
 }
-
 func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 
 	var ProtectedOrgs ProtectedList
@@ -518,7 +522,37 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 
 						fmt.Println("command: ", guid)
 						fmt.Println("Space exists: ", guid.Stdout)
+
+						fmt.Println("Enabling Space Isolation Segment")
+
+						iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
+
+						if _, err := iso.Output(); err != nil {
+							fmt.Println("command: ", iso)
+							fmt.Println("Err: ", iso.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", iso)
+							fmt.Println(iso.Stdout)
+						}
+
+						isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
+
+						if _, err := isospace.Output(); err != nil {
+							fmt.Println("command: ", isospace)
+							fmt.Println("Err: ", isospace.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", isospace)
+							fmt.Println(isospace.Stdout)
+						}
+
 						fmt.Println("Creating or updating ASGs")
+
+
+//						cf enable-org-isolation ORG-NAME SEGMENT-NAME
+//						cf set-space-isolation-segment SPACE-NAME SEGMENT-NAME
+
 						if InitClusterConfigVals.ClusterDetails.EnableASG == true {
 							fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
 							CreateOrUpdateASGs(Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, ASGPath, ostype)
@@ -540,6 +574,33 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 						} else {
 							fmt.Println("command: ", CreateSpace)
 							fmt.Println(CreateSpace.Stdout)
+
+							fmt.Println("Enabling Space Isolation Segment")
+
+							iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
+
+							if _, err := iso.Output(); err != nil {
+								fmt.Println("command: ", iso)
+								fmt.Println("Err: ", iso.Stdout)
+								fmt.Println("Err Code: ", err)
+							} else {
+								fmt.Println("command: ", iso)
+								fmt.Println(iso.Stdout)
+							}
+
+							isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
+
+							if _, err := isospace.Output(); err != nil {
+								fmt.Println("command: ", isospace)
+								fmt.Println("Err: ", isospace.Stdout)
+								fmt.Println("Err Code: ", err)
+							} else {
+								fmt.Println("command: ", isospace)
+								fmt.Println(isospace.Stdout)
+							}
+
+							fmt.Println("Creating ASGs")
+
 							if InitClusterConfigVals.ClusterDetails.EnableASG == true {
 								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
 								CreateOrUpdateASGs(Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, ASGPath, ostype)
@@ -566,6 +627,7 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 
 	var Quotas Quotalist
 	var ProtectedQuota ProtectedList
+	var cmd *exec.Cmd
 
 
 	QuotaYml := cpath+"/C9Cli/"+clustername+"/Quota.yml"
@@ -600,6 +662,19 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 		var count, totalcount int
 		fmt.Println("Quota: ", Quotas.Quota[i].Name)
 
+		SerLimit := string(Quotas.Quota[i].ServiceInstanceLimit)
+		AppLimt  := string(Quotas.Quota[i].AppInstanceLimit)
+		MemLimit := Quotas.Quota[i].MemoryLimit
+
+		if string(Quotas.Quota[i].ServiceInstanceLimit) == "" {
+			SerLimit = "25"
+		}
+		if string(Quotas.Quota[i].AppInstanceLimit) == "" {
+			SerLimit = "25"
+		}
+		if Quotas.Quota[i].MemoryLimit == "" {
+			MemLimit = "1024M"
+		}
 		for p := 0; p < LenProtectedQuota; p++ {
 			fmt.Println("Protected Quota: ", ProtectedQuota.Quota[p])
 			if strings.Trim(ProtectedQuota.Quota[p], "") == strings.Trim(Quotas.Quota[i].Name, "") {
@@ -622,7 +697,13 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 				fmt.Println("Err Code: ", err)
 				//fmt.Println("Quota Doesn't exits: ", Quotadetails.Stdout)
 				fmt.Println("Creating Quota")
-				cmd := exec.Command("cf", "create-quota", Quotas.Quota[i].Name, "-m", Quotas.Quota[i].MemoryLimit, "-i", "-1", "-r", "-1", "-s", "-1", "-a", "-1", "--allow-paid-service-plans")
+
+				if Quotas.Quota[i].AllowPaidPlans == true {
+					cmd = exec.Command("cf", "create-quota", Quotas.Quota[i].Name, "-m", MemLimit, "-i", "-1", "-r", "-1", "-s", SerLimit, "-a", AppLimt, "--allow-paid-service-plans")
+				} else {
+					cmd = exec.Command("cf", "create-quota", Quotas.Quota[i].Name, "-m", MemLimit, "-i", "-1", "-r", "-1", "-s", SerLimit, "-a", AppLimt, "--disallow-paid-service-plans")
+				}
+
 				if _, err := cmd.Output(); err != nil{
 					fmt.Println("command: ", cmd)
 					fmt.Println("Err: ", cmd.Stdout)
@@ -644,7 +725,13 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 				fmt.Println("command: ", Quotadetails)
 				fmt.Println("Quota exists: ", Quotadetails.Stdout)
 				fmt.Println("Updating Org")
-				cmd := exec.Command("cf", "update-quota", Quotas.Quota[i].Name, "-m", Quotas.Quota[i].MemoryLimit, "-i", "-1", "-r", "-1", "-s", "-1", "-a", "-1", "--allow-paid-service-plans")
+
+				if Quotas.Quota[i].AllowPaidPlans == true {
+					cmd = exec.Command("cf", "update-quota", Quotas.Quota[i].Name, "-m", MemLimit, "-i", "-1", "-r", "-1", "-s",  SerLimit, "-a", AppLimt, "--allow-paid-service-plans")
+				} else {
+					cmd = exec.Command("cf", "update-quota", Quotas.Quota[i].Name, "-m", MemLimit, "-i", "-1", "-r", "-1", "-s",  SerLimit, "-a", AppLimt, "--disallow-paid-service-plans")
+				}
+
 				if _, err := cmd.Output(); err != nil{
 					fmt.Println("command: ", cmd)
 					fmt.Println("Err: ", cmd.Stdout)
@@ -1110,6 +1197,7 @@ Org:
           Role: OrgAudidor
     Spaces:
       - Name: Space1
+        IsolationSeg: "test-segment-1"
         SpaceUsers:
           LDAP:
             - Name: User1
@@ -1133,6 +1221,7 @@ Org:
             - Name: User3
               Role: SpaceAudidor
       - Name: Space2
+		IsolationSeg: "test-segment-2"
         SpaceUsers:
           LDAP:
             - Name: User1
@@ -1160,6 +1249,9 @@ Org:
 quota:
   - Name: default
     memory_limit: 1024M
+	allow_paid_plans: False
+    app_instance_limit: 25
+    service_instance_limit: 25
   - Name: small_quota
     memory_limit: 2048M
   - Name: medium_quota
