@@ -47,5 +47,3 @@ Inital ASG setup such as creating platform wide default ASG needed to performed 
 Pending Items:
 
 - Delete Orgs/Spaces/Users/ASGs
-- Enable binding isolation segments
-- Enable SI/AI count for Quotas
