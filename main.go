@@ -34,7 +34,7 @@ type Orglist struct {
 		} `yaml:"OrgUsers"`
 		Spaces []struct {
 			Name       string `yaml:"Name"`
-			IsolationSeg string `"IsolationSeg"`
+			IsolationSeg string `yaml:"IsolationSeg"`
 			SpaceUsers struct {
 				LDAP []struct {
 					Name string `yaml:"Name"`
@@ -524,6 +524,9 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 						fmt.Println("Space exists: ", guid.Stdout)
 
 						fmt.Println("Enabling Space Isolation Segment")
+						fmt.Println(Orgs.Org[i])
+						fmt.Println(Orgs.Org[i].Spaces[j].Name)
+						fmt.Println("SegName: ", Orgs.Org[i].Spaces[j].IsolationSeg)
 						if Orgs.Org[i].Spaces[j].IsolationSeg != "" {
 							iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
 
@@ -545,6 +548,8 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 								fmt.Println("command: ", isospace)
 								fmt.Println(isospace.Stdout)
 							}
+						} else {
+							fmt.Println("No Isolation Segment Provided, Will be attached to Default")
 						}
 
 
@@ -577,7 +582,7 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 							fmt.Println(CreateSpace.Stdout)
 
 							fmt.Println("Enabling Space Isolation Segment")
-
+							fmt.Println("SegName: ", Orgs.Org[i].Spaces[j].IsolationSeg)
 							if Orgs.Org[i].Spaces[j].IsolationSeg != "" {
 								iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
 
@@ -600,7 +605,9 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 									fmt.Println(isospace.Stdout)
 								}
 
-							}
+							} else {
+							fmt.Println("No Isolation Segment Provided, Will be attached to Default")
+						}
 
 
 
