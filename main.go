@@ -14,40 +14,46 @@ import (
 	"text/template"
 )
 
+type List struct {
+	OrgList []string `yaml:"OrgList"`
+}
 type Orglist struct {
-	Org []struct {
+	Org struct {
 		Name     string `yaml:"Name"`
 		Quota    string `yaml:"Quota"`
 		OrgUsers struct {
-			LDAP []struct {
-				Name string `yaml:"Name"`
-				Role string `yaml:"Role"`
+			LDAP struct {
+				OrgManagers []string `yaml:"OrgManagers"`
+				OrgAuditors []string `yaml:"OrgAuditors"`
 			} `yaml:"LDAP"`
-			SSO []struct {
-				Name string `yaml:"Name"`
-				Role string `yaml:"Role"`
+			SSO struct {
+				OrgManagers []string `yaml:"OrgManagers"`
+				OrgAuditors []string `yaml:"OrgAuditors"`
 			} `yaml:"SSO"`
-			UAA []struct {
-				Name string `yaml:"Name"`
-				Role string `yaml:"Role"`
+			UAA struct {
+				OrgManagers []string `yaml:"OrgManagers"`
+				OrgAuditors []string `yaml:"OrgAuditors"`
 			} `yaml:"UAA"`
 		} `yaml:"OrgUsers"`
 		Spaces []struct {
-			Name       string `yaml:"Name"`
+			Name         string `yaml:"Name"`
 			IsolationSeg string `yaml:"IsolationSeg"`
-			SpaceUsers struct {
-				LDAP []struct {
-					Name string `yaml:"Name"`
-					Role string `yaml:"Role"`
+			SpaceUsers   struct {
+				LDAP struct {
+					SpaceManagers   []string `yaml:"SpaceManagers"`
+					SpaceDevelopers []string `yaml:"SpaceDevelopers"`
+					SpaceAuditors   []string `yaml:"SpaceAuditors"`
 				} `yaml:"LDAP"`
-				SSO []struct {
-					Name string `yaml:"Name"`
-					Role string `yaml:"Role"`
-				} `yaml:"SSO"`
-				UAA []struct {
-					Name string `yaml:"Name"`
-					Role string `yaml:"Role"`
+				UAA struct {
+					SpaceManagers   []string `yaml:"SpaceManagers"`
+					SpaceDevelopers []string `yaml:"SpaceDevelopers"`
+					SpaceAuditors   []string `yaml:"SpaceAuditors"`
 				} `yaml:"UAA"`
+				SSO struct {
+					SpaceManagers   []string `yaml:"SpaceManagers"`
+					SpaceDevelopers []string `yaml:"SpaceDevelopers"`
+					SpaceAuditors   []string `yaml:"SpaceAuditors"`
+				} `yaml:"SSO"`
 			} `yaml:"SpaceUsers"`
 		} `yaml:"Spaces"`
 	} `yaml:"Org"`
@@ -131,12 +137,15 @@ func main()  {
 		fmt.Printf("ClusterName: %v\n", ClusterName)
 		fmt.Printf("EndPoint: %v\n", endpoint)
 		fmt.Printf("User: %v\n", user)
-		//fmt.Printf("Pwd: %v\n", pwd)
 		fmt.Printf("Org: %v\n", org)
 		fmt.Printf("Space: %v\n", space)
 		fmt.Printf("EnableASG: %v\n", asg)
 		fmt.Printf("Path: %v\n", cpath)
 		Init(ClusterName, endpoint, user, org, space, asg, cpath)
+	} else if operation == "org-init" {
+
+		fmt.Printf("ClusterName: %v\n", ClusterName)
+		OrgsInit(ClusterName, cpath)
 
 	} else if operation == "create-org"{
 
@@ -172,6 +181,7 @@ func main()  {
 		fmt.Printf("ClusterName: %v\n", ClusterName)
 		SetupConnection (ClusterName,  pwd, cpath)
 		CreateOrUpdateProtOrgAsg (ClusterName, cpath, ostype)
+
 	} else if operation == "create-all" {
 		fmt.Printf("ClusterName: %v\n", ClusterName)
 		SetupConnection (ClusterName,  pwd, cpath)
@@ -189,7 +199,6 @@ func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 
 	var ProtectedOrgs ProtectedList
 	var ASGpath string
-	//ASGpath = cpath+"/C9Cli/"+clustername+"/ASGs/"
 	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
@@ -212,10 +221,9 @@ func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 	}
 
 	if ostype == "windows" {
-		ASGpath = cpath+"\\C9Cli\\"+clustername+"\\ASGs\\"
-		//fmt.Println("Hi :",ASGPath)
+		ASGpath = cpath+"\\C9Cli\\"+clustername+"\\ProtectedOrgsASGs\\"
 	} else {
-		ASGpath = cpath+"/C9Cli/"+clustername+"/ASGs/"
+		ASGpath = cpath+"/C9Cli/"+clustername+"/ProtectedOrgsASGs/"
 	}
 
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
@@ -328,20 +336,19 @@ func SetupConnection(clustername string, pwd string, cpath string) error {
 func CreateOrUpdateOrgs(clustername string, cpath string) error {
 
 	var Orgs Orglist
+	var list List
 	var ProtectedOrgs ProtectedList
 
-	OrgsYml := cpath+"/C9Cli/"+clustername+"/Org.yml"
-	fileOrgYml, err := ioutil.ReadFile(OrgsYml)
-
+	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
 	if err != nil {
 		panic(err)
 	}
-
 
 	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
@@ -355,66 +362,81 @@ func CreateOrUpdateOrgs(clustername string, cpath string) error {
 		panic(err)
 	}
 
-
-	LenOrgs := len(Orgs.Org)
+	LenList := len(list.OrgList)
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
 
-	for i := 0; i < LenOrgs; i++ {
+	for i := 0; i < LenList; i++ {
 		var count, totalcount int
-		fmt.Println("Org: ", Orgs.Org[i].Name)
+		fmt.Println("Org: ", list.OrgList[i])
 		for p := 0; p < LenProtectedOrgs; p++ {
 			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
-			if ProtectedOrgs.Org[p] == Orgs.Org[i].Name {
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
 				count = 1
 			} else {
 				count = 0
 			}
 		}
 		totalcount = totalcount + count
-	//	fmt.Println(totalcount)
 
 		if totalcount == 0 {
 			fmt.Println("This is not Protected Org")
-			guid := exec.Command("cf", "org", Orgs.Org[i].Name, "--guid")
-			if _, err := guid.Output(); err == nil{
 
-				fmt.Println("command: ", guid)
-				fmt.Println("Org exists: ", guid.Stdout)
-				fmt.Println("Updating Org quota")
-				SetQuota := exec.Command("cf", "set-quota", Orgs.Org[i].Name, Orgs.Org[i].Quota)
-				if _, err := SetQuota.Output(); err != nil{
-					fmt.Println("command: ", SetQuota)
-					fmt.Println("Err: ", SetQuota.Stdout)
-					fmt.Println("Err Code: ", err)
+			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+			if err != nil {
+				panic(err)
+			}
+			if list.OrgList[i] == Orgs.Org.Name {
+				guid := exec.Command("cf", "org", Orgs.Org.Name, "--guid")
+				if _, err := guid.Output(); err == nil{
+
+					fmt.Println("command: ", guid)
+					fmt.Println("Org exists: ", guid.Stdout)
+					fmt.Println("Updating Org quota")
+					SetQuota := exec.Command("cf", "set-quota", Orgs.Org.Name, Orgs.Org.Quota)
+					if _, err := SetQuota.Output(); err != nil{
+						fmt.Println("command: ", SetQuota)
+						fmt.Println("Err: ", SetQuota.Stdout)
+						fmt.Println("Err Code: ", err)
+					} else {
+						fmt.Println("command: ", SetQuota)
+						fmt.Println(SetQuota.Stdout)
+					}
 				} else {
-					fmt.Println("command: ", SetQuota)
-					fmt.Println(SetQuota.Stdout)
+					fmt.Println("command: ", guid)
+					fmt.Println("Err: ", guid.Stdout)
+					fmt.Println("Err Code: ", err)
+					fmt.Println("Pulling Guid Id: ", guid.Stdout)
+					fmt.Println("Org doesn't exists, Creating Org")
+					createorg := exec.Command("cf", "create-org", Orgs.Org.Name)
+					if _, err := createorg.Output(); err != nil{
+						fmt.Println("command: ", createorg)
+						fmt.Println("Err: ", createorg.Stdout)
+						fmt.Println("Err Code: ", err)
+					} else {
+						fmt.Println("command: ", createorg)
+						fmt.Println(createorg.Stdout)
+					}
+					attachquota := exec.Command("cf", "set-quota", Orgs.Org.Name, Orgs.Org.Quota)
+					if _, err := attachquota.Output(); err != nil{
+						fmt.Println("command: ", attachquota)
+						fmt.Println("Err: ", attachquota.Stdout)
+						fmt.Println("Err Code: ", err)
+					} else {
+						fmt.Println("command: ", attachquota)
+						fmt.Println(attachquota.Stdout)
+					}
 				}
 			} else {
-				fmt.Println("command: ", guid)
-				fmt.Println("Err: ", guid.Stdout)
-				fmt.Println("Err Code: ", err)
-				fmt.Println("Pulling Guid Id: ", guid.Stdout)
-				fmt.Println("Org doesn't exists, Creating Org")
-				createorg := exec.Command("cf", "create-org", Orgs.Org[i].Name)
-				if _, err := createorg.Output(); err != nil{
-					fmt.Println("command: ", createorg)
-					fmt.Println("Err: ", createorg.Stdout)
-					fmt.Println("Err Code: ", err)
-				} else {
-					fmt.Println("command: ", createorg)
-					fmt.Println(createorg.Stdout)
-				}
-				attachquota := exec.Command("cf", "set-quota", Orgs.Org[i].Name, Orgs.Org[i].Quota)
-				if _, err := attachquota.Output(); err != nil{
-					fmt.Println("command: ", attachquota)
-					fmt.Println("Err: ", attachquota.Stdout)
-					fmt.Println("Err Code: ", err)
-				} else {
-					fmt.Println("command: ", attachquota)
-					fmt.Println(attachquota.Stdout)
-				}
+				fmt.Println("Org Name does't match with folder name")
 			}
+
 		} else {
 			fmt.Println("This is a protected Org")
 		}
@@ -425,6 +447,18 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 
 	var Orgs Orglist
 	var ProtectedOrgs ProtectedList
+	var list List
+
+	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
+	if err != nil {
+		panic(err)
+	}
 
 	var InitClusterConfigVals InitClusterConfigVals
 	ConfigFile := cpath+"/C9Cli/"+clustername+"/config.yml"
@@ -440,28 +474,6 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	}
 	var ASGPath, OrgsYml string
 
-	//fmt.Printf("Endpoint: %v\n", InitClusterConfigVals.ClusterDetails.EndPoint)
-
-	if ostype == "windows" {
-		ASGPath = cpath+"\\C9Cli\\"+clustername+"\\ASGs\\"
-		OrgsYml = cpath+"\\C9Cli\\"+clustername+"\\Org.yml"
-		fmt.Println("Hi :",ASGPath)
-	} else {
-		ASGPath = cpath+"/C9Cli/"+clustername+"/ASGs/"
-		OrgsYml = cpath+"/C9Cli/"+clustername+"/Org.yml"
-	}
-
-	fileOrgYml, err := ioutil.ReadFile(OrgsYml)
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
-	if err != nil {
-		panic(err)
-	}
-
 	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 	if err != nil {
@@ -473,119 +485,82 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 		panic(err)
 	}
 
-	LenOrgs := len(Orgs.Org)
+	LenList := len(list.OrgList)
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
 
 
-	for i := 0; i < LenOrgs; i++ {
+	for i := 0; i < LenList; i++ {
 
 		var count, totalcount int
-		fmt.Println("Org: ", Orgs.Org[i].Name)
+		fmt.Println("Org: ", list.OrgList[i])
 		for p := 0; p < LenProtectedOrgs; p++ {
 			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
-			if ProtectedOrgs.Org[p] == Orgs.Org[i].Name {
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
 				count = 1
 			} else {
 				count = 0
 			}
 		}
 		totalcount = totalcount + count
-		//fmt.Println(totalcount)
 
 		if totalcount == 0 {
 			fmt.Println("This is not Protected Org")
-			guid := exec.Command("cf", "org", Orgs.Org[i].Name, "--guid")
 
-			if _, err := guid.Output(); err == nil {
-
-				fmt.Println("command: ", guid)
-				fmt.Println("Org exists: ", guid.Stdout)
-				SpaceLen := len(Orgs.Org[i].Spaces)
-
-				TargetOrg := exec.Command("cf", "t", "-o", Orgs.Org[i].Name)
-				if _, err := TargetOrg.Output(); err == nil {
-					fmt.Println("command: ", TargetOrg)
-					fmt.Println("Targeting: ", TargetOrg.Stdout)
-				} else {
-					fmt.Println("command: ", TargetOrg)
-					fmt.Println("Err: ", TargetOrg.Stdout)
-					fmt.Println("Err Code: ", err)
-				}
-
-				for j := 0; j < SpaceLen; j++ {
-
-					fmt.Println("Creating Spaces")
-
-					guid = exec.Command("cf", "space", Orgs.Org[i].Spaces[j].Name, "--guid")
-
-					if _, err := guid.Output(); err == nil{
-
-						fmt.Println("command: ", guid)
-						fmt.Println("Space exists: ", guid.Stdout)
-
-						fmt.Println("Enabling Space Isolation Segment")
-						fmt.Println(Orgs.Org[i])
-						fmt.Println(Orgs.Org[i].Spaces[j].Name)
-						fmt.Println("SegName: ", Orgs.Org[i].Spaces[j].IsolationSeg)
-						if Orgs.Org[i].Spaces[j].IsolationSeg != "" {
-							iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
-
-							if _, err := iso.Output(); err != nil {
-								fmt.Println("command: ", iso)
-								fmt.Println("Err: ", iso.Stdout)
-								fmt.Println("Err Code: ", err)
-							} else {
-								fmt.Println("command: ", iso)
-								fmt.Println(iso.Stdout)
-							}
-							isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
-
-							if _, err := isospace.Output(); err != nil {
-								fmt.Println("command: ", isospace)
-								fmt.Println("Err: ", isospace.Stdout)
-								fmt.Println("Err Code: ", err)
-							} else {
-								fmt.Println("command: ", isospace)
-								fmt.Println(isospace.Stdout)
-							}
-						} else {
-							fmt.Println("No Isolation Segment Provided, Will be attached to Default")
-						}
+			if ostype == "windows" {
+				ASGPath = cpath+"\\C9Cli\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
+				OrgsYml = cpath+"\\C9Cli\\"+clustername+"\\"+list.OrgList[i]+"\\Org.yml"
+			} else {
+				ASGPath = cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
+				OrgsYml = cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			}
 
 
-						fmt.Println("Creating or updating ASGs")
+			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
+			if err != nil {
+				fmt.Println(err)
+			}
 
-//						cf enable-org-isolation ORG-NAME SEGMENT-NAME
-//						cf set-space-isolation-segment SPACE-NAME SEGMENT-NAME
+			err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+			if err != nil {
+				panic(err)
+			}
+			if list.OrgList[i] == Orgs.Org.Name {
+				guid := exec.Command("cf", "org", Orgs.Org.Name, "--guid")
 
-						if InitClusterConfigVals.ClusterDetails.EnableASG == true {
-							fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-							CreateOrUpdateASGs(Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, ASGPath, ostype)
-						} else {
-							fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-							fmt.Println("ASGs not enabled")
-						}
+				if _, err := guid.Output(); err == nil {
+
+					fmt.Println("command: ", guid)
+					fmt.Println("Org exists: ", guid.Stdout)
+					SpaceLen := len(Orgs.Org.Spaces)
+
+					TargetOrg := exec.Command("cf", "t", "-o", Orgs.Org.Name)
+					if _, err := TargetOrg.Output(); err == nil {
+						fmt.Println("command: ", TargetOrg)
+						fmt.Println("Targeting: ", TargetOrg.Stdout)
 					} else {
-						fmt.Println("command: ", guid)
-						fmt.Println("Pulling Space Guid ID: ", guid.Stdout )
-						fmt.Println("Creating Space")
+						fmt.Println("command: ", TargetOrg)
+						fmt.Println("Err: ", TargetOrg.Stdout)
+						fmt.Println("Err Code: ", err)
+					}
 
-						CreateSpace := exec.Command("cf", "create-space", Orgs.Org[i].Spaces[j].Name, "-o", Orgs.Org[i].Name)
+					for j := 0; j < SpaceLen; j++ {
 
-						if _, err := CreateSpace.Output(); err != nil {
-							fmt.Println("command: ", CreateSpace)
-							fmt.Println("Err: ", CreateSpace.Stdout)
-							fmt.Println("Err Code: ", err)
-						} else {
-							fmt.Println("command: ", CreateSpace)
-							fmt.Println(CreateSpace.Stdout)
+						fmt.Println("Creating Spaces")
+
+						guid = exec.Command("cf", "space", Orgs.Org.Spaces[j].Name, "--guid")
+
+						if _, err := guid.Output(); err == nil{
+
+							fmt.Println("command: ", guid)
+							fmt.Println("Space exists: ", guid.Stdout)
 
 							fmt.Println("Enabling Space Isolation Segment")
-							fmt.Println("SegName: ", Orgs.Org[i].Spaces[j].IsolationSeg)
-							if Orgs.Org[i].Spaces[j].IsolationSeg != "" {
-								iso := exec.Command("cf", "enable-org-isolation", Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
-
+							fmt.Println(Orgs.Org)
+							fmt.Println(Orgs.Org.Spaces[j].Name)
+							fmt.Println("SegName: ", Orgs.Org.Spaces[j].IsolationSeg)
+							if Orgs.Org.Spaces[j].IsolationSeg != "" {
+								iso := exec.Command("cf", "enable-org-isolation", Orgs.Org.Name, Orgs.Org.Spaces[j].IsolationSeg)
 								if _, err := iso.Output(); err != nil {
 									fmt.Println("command: ", iso)
 									fmt.Println("Err: ", iso.Stdout)
@@ -594,8 +569,8 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 									fmt.Println("command: ", iso)
 									fmt.Println(iso.Stdout)
 								}
+								isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org.Spaces[j].Name, Orgs.Org.Spaces[j].IsolationSeg)
 
-								isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].IsolationSeg)
 								if _, err := isospace.Output(); err != nil {
 									fmt.Println("command: ", isospace)
 									fmt.Println("Err: ", isospace.Stdout)
@@ -604,31 +579,84 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 									fmt.Println("command: ", isospace)
 									fmt.Println(isospace.Stdout)
 								}
-
 							} else {
-							fmt.Println("No Isolation Segment Provided, Will be attached to Default")
-						}
+								fmt.Println("No Isolation Segment Provided, Will be attached to Default")
+							}
 
 
+							fmt.Println("Creating or updating ASGs")
 
-
-							fmt.Println("Creating ASGs")
 
 							if InitClusterConfigVals.ClusterDetails.EnableASG == true {
 								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-								CreateOrUpdateASGs(Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, ASGPath, ostype)
+								CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
 							} else {
 								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
 								fmt.Println("ASGs not enabled")
 							}
+						} else {
+							fmt.Println("command: ", guid)
+							fmt.Println("Pulling Space Guid ID: ", guid.Stdout )
+							fmt.Println("Creating Space")
+
+							CreateSpace := exec.Command("cf", "create-space", Orgs.Org.Spaces[j].Name, "-o", Orgs.Org.Name)
+
+							if _, err := CreateSpace.Output(); err != nil {
+								fmt.Println("command: ", CreateSpace)
+								fmt.Println("Err: ", CreateSpace.Stdout)
+								fmt.Println("Err Code: ", err)
+							} else {
+								fmt.Println("command: ", CreateSpace)
+								fmt.Println(CreateSpace.Stdout)
+
+								fmt.Println("Enabling Space Isolation Segment")
+								fmt.Println("SegName: ", Orgs.Org.Spaces[j].IsolationSeg)
+								if Orgs.Org.Spaces[j].IsolationSeg != "" {
+									iso := exec.Command("cf", "enable-org-isolation", Orgs.Org.Name, Orgs.Org.Spaces[j].IsolationSeg)
+
+									if _, err := iso.Output(); err != nil {
+										fmt.Println("command: ", iso)
+										fmt.Println("Err: ", iso.Stdout)
+										fmt.Println("Err Code: ", err)
+									} else {
+										fmt.Println("command: ", iso)
+										fmt.Println(iso.Stdout)
+									}
+
+									isospace := exec.Command("cf", "set-space-isolation-segment", Orgs.Org.Spaces[j].Name, Orgs.Org.Spaces[j].IsolationSeg)
+									if _, err := isospace.Output(); err != nil {
+										fmt.Println("command: ", isospace)
+										fmt.Println("Err: ", isospace.Stdout)
+										fmt.Println("Err Code: ", err)
+									} else {
+										fmt.Println("command: ", isospace)
+										fmt.Println(isospace.Stdout)
+									}
+
+								} else {
+									fmt.Println("No Isolation Segment Provided, Will be attached to Default")
+								}
+
+								fmt.Println("Creating ASGs")
+
+								if InitClusterConfigVals.ClusterDetails.EnableASG == true {
+									fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+									CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
+								} else {
+									fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+									fmt.Println("ASGs not enabled")
+								}
+							}
 						}
 					}
+				} else {
+					fmt.Println("command: ", guid )
+					fmt.Println("Err: ", guid.Stdout)
+					fmt.Println("Err Code: ", err)
+					fmt.Println("Org doesn't exists, Please create Org")
 				}
 			} else {
-				fmt.Println("command: ", guid )
-				fmt.Println("Err: ", guid.Stdout)
-				fmt.Println("Err Code: ", err)
-				fmt.Println("Org doesn't exists, Please create Org")
+				fmt.Println("Org Name does't match with folder name")
 			}
 		} else {
 			fmt.Println("This is a protected Org")
@@ -704,8 +732,6 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 		}
 		totalcount = totalcount + count
 
-		//fmt.Println(totalcount)
-
 		if totalcount == 0 {
 
 			fmt.Println("This is not Protected Quota")
@@ -778,17 +804,17 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 }
 func CreateOrUpdateOrgUsers(clustername string, cpath string) error {
 
+	var list List
 	var Orgs Orglist
 	var ProtectedOrgs ProtectedList
 
-	OrgsYml := cpath+"/C9Cli/"+clustername+"/Org.yml"
-	fileOrgYml, err := ioutil.ReadFile(OrgsYml)
-
+	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
 	if err != nil {
 		panic(err)
 	}
@@ -807,94 +833,154 @@ func CreateOrUpdateOrgUsers(clustername string, cpath string) error {
 
 
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
-	LenOrgs := len(Orgs.Org)
-
-	for i := 0; i < LenOrgs; i++ {
+	LenList := len(list.OrgList)
+	for i := 0; i < LenList; i++ {
 
 		var count, totalcount int
-		fmt.Println("Org: ", Orgs.Org[i].Name)
+		fmt.Println("Org: ", list.OrgList[i])
 		for p := 0; p < LenProtectedOrgs; p++ {
 			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
-			if ProtectedOrgs.Org[p] == Orgs.Org[i].Name {
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
 				count = 1
 			} else {
 				count = 0
 			}
 		}
 		totalcount = totalcount + count
-		//fmt.Println(totalcount)
 
 		if totalcount == 0 {
 
-			guid := exec.Command("cf", "org", Orgs.Org[i].Name, "--guid")
-			if _, err := guid.Output(); err == nil{
+			fmt.Println("This is not Protected Org")
 
-				//fmt.Println("Err: ", err)
+			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
-				fmt.Println("command: ", guid)
-				fmt.Println("Org exists: ", guid.Stdout)
-				fmt.Println("Updating Org Users")
-				fmt.Println("Updating LDAP Users")
+			if err != nil {
+				fmt.Println(err)
+			}
 
-				LDAPOrgLen := len(Orgs.Org[i].OrgUsers.LDAP)
+			err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+			if err != nil {
+				panic(err)
+			}
 
-				for j := 0; j < LDAPOrgLen; j++ {
+			if list.OrgList[i] == Orgs.Org.Name {
+				guid := exec.Command("cf", "org", Orgs.Org.Name, "--guid")
+				if _, err := guid.Output(); err == nil{
 
-					//cf set-org-role USER ORGNAME ROLE(like OrgManager)
+					fmt.Println("command: ", guid)
+					fmt.Println("Org exists: ", guid.Stdout)
+					fmt.Println("Updating Org Users")
+					fmt.Println("Updating LDAP Users")
 
-					cmd := exec.Command("cf", "set-org-role", Orgs.Org[i].OrgUsers.LDAP[j].Name, Orgs.Org[i].Name, Orgs.Org[i].OrgUsers.LDAP[j].Role)
+					LDAPOrgManLen := len(Orgs.Org.OrgUsers.LDAP.OrgManagers)
 
-					if _, err := cmd.Output(); err != nil{
-						fmt.Println("command: ", cmd)
-						fmt.Println("Err: ", cmd.Stdout)
-						fmt.Println("Err Code: ", err)
-					} else {
-						fmt.Println("command: ", cmd)
-						fmt.Println(cmd.Stdout)
+					for j := 0; j < LDAPOrgManLen; j++ {
+
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.LDAP.OrgManagers[j], Orgs.Org.Name, "OrgManager")
+
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
 					}
-				}
 
-				fmt.Println("Updating UAA Users")
+					LDAPOrgAudLen := len(Orgs.Org.OrgUsers.LDAP.OrgAuditors)
 
-				UAAOrgLen := len(Orgs.Org[i].OrgUsers.UAA)
+					for j := 0; j < LDAPOrgAudLen; j++ {
 
-				for k := 0; k < UAAOrgLen; k++ {
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.LDAP.OrgAuditors[j], Orgs.Org.Name, "OrgAuditor")
 
-					//cf set-org-role USER ORGNAME ROLE(like OrgManager)
-
-					cmd := exec.Command("cf", "set-org-role", Orgs.Org[i].OrgUsers.UAA[k].Name, Orgs.Org[i].Name, Orgs.Org[i].OrgUsers.UAA[k].Role)
-					if _, err := cmd.Output(); err != nil{
-						fmt.Println("command: ", cmd)
-						fmt.Println("Err: ", cmd.Stdout)
-						fmt.Println("Err Code: ", err)
-					} else {
-						fmt.Println("command: ", cmd)
-						fmt.Println(cmd.Stdout)
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
 					}
-				}
 
-				fmt.Println("Updating SSO Users")
+					fmt.Println("Updating UAA Users")
 
-				SSOOrgLen := len(Orgs.Org[i].OrgUsers.SSO)
+					UAAOrgManLen := len(Orgs.Org.OrgUsers.UAA.OrgManagers)
 
-				for l := 0; l < SSOOrgLen; l++ {
-					//cf set-org-role USER ORGNAME ROLE(like OrgManager)
-					cmd := exec.Command("cf", "set-org-role", Orgs.Org[i].OrgUsers.SSO[l].Name, Orgs.Org[i].Name, Orgs.Org[i].OrgUsers.SSO[l].Role)
-					if _, err := cmd.Output(); err != nil{
-						fmt.Println("command: ", cmd)
-						fmt.Println("Err: ", cmd.Stdout)
-						fmt.Println("Err Code: ", err)
-					} else {
-						fmt.Println("command: ", cmd)
-						fmt.Println(cmd.Stdout)
+					for j := 0; j < UAAOrgManLen; j++ {
+
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.UAA.OrgManagers[j], Orgs.Org.Name, "OrgManager")
+
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
 					}
+
+					UAAOrgAudLen := len(Orgs.Org.OrgUsers.UAA.OrgAuditors)
+
+					for j := 0; j < UAAOrgAudLen; j++ {
+
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.UAA.OrgAuditors[j], Orgs.Org.Name, "OrgAuditor")
+
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
+					}
+
+					fmt.Println("Updating SSO Users")
+
+					SSOOrgManLen := len(Orgs.Org.OrgUsers.SSO.OrgManagers)
+
+					for j := 0; j < SSOOrgManLen; j++ {
+
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.SSO.OrgManagers[j], Orgs.Org.Name, "OrgManager")
+
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
+					}
+
+					SSOOrgAudLen := len(Orgs.Org.OrgUsers.SSO.OrgAuditors)
+
+					for j := 0; j < SSOOrgAudLen; j++ {
+
+						cmd := exec.Command("cf", "set-org-role", Orgs.Org.OrgUsers.SSO.OrgAuditors[j], Orgs.Org.Name, "OrgAuditor")
+
+						if _, err := cmd.Output(); err != nil{
+							fmt.Println("command: ", cmd)
+							fmt.Println("Err: ", cmd.Stdout)
+							fmt.Println("Err Code: ", err)
+						} else {
+							fmt.Println("command: ", cmd)
+							fmt.Println(cmd.Stdout)
+						}
+					}
+				} else {
+					fmt.Println("command: ", guid)
+					fmt.Println("Err: ", guid.Stdout)
+					fmt.Println("Err Code: ", err)
+					fmt.Println("Pulling Org Guid Id: ", guid.Stdout)
+					fmt.Println("Please Create Org")
 				}
 			} else {
-				fmt.Println("command: ", guid)
-				fmt.Println("Err: ", guid.Stdout)
-				fmt.Println("Err Code: ", err)
-				fmt.Println("Pulling Org Guid Id: ", guid.Stdout)
-				fmt.Println("Please Create Org")
+				fmt.Println("Org Name does't match with folder name")
 			}
 		} else {
 			fmt.Println("This is a protected Org")
@@ -906,15 +992,15 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 
 	var Orgs Orglist
 	var ProtectedOrgs ProtectedList
+	var list List
 
-	OrgsYml := cpath+"/C9Cli/"+clustername+"/Org.yml"
-	fileOrgYml, err := ioutil.ReadFile(OrgsYml)
-
+	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
 	if err != nil {
 		panic(err)
 	}
@@ -932,108 +1018,210 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 	}
 
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
-	LenOrgs := len(Orgs.Org)
+	LenList := len(list.OrgList)
 
-	for i := 0; i < LenOrgs; i++ {
+	for i := 0; i < LenList; i++ {
 
 		var count, totalcount int
-		fmt.Println("Org: ", Orgs.Org[i].Name)
+		fmt.Println("Org: ", list.OrgList[i])
 		for p := 0; p < LenProtectedOrgs; p++ {
 			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
-			if ProtectedOrgs.Org[p] == Orgs.Org[i].Name {
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
 				count = 1
 			} else {
 				count = 0
 			}
 		}
 		totalcount = totalcount + count
-		//fmt.Println(totalcount)
 
 		if totalcount == 0 {
-			guid := exec.Command("cf", "org", Orgs.Org[i].Name, "--guid")
 
-			if _, err := guid.Output(); err == nil {
 
-				fmt.Println("command: ", guid)
-				fmt.Println("Org exists: ", guid.Stdout)
-				targetOrg := exec.Command("cf", "t", "-o", Orgs.Org[i].Name)
-				if _, err := targetOrg.Output(); err == nil {
-					fmt.Println("command: ", targetOrg)
-					fmt.Println("Targeted Org: ", targetOrg.Stdout)
-				} else {
-					fmt.Println("command: ", targetOrg)
-					fmt.Println("Err: ", targetOrg.Stdout)
-					fmt.Println("Err Code: ", targetOrg.Stderr)
-				}
-				SpaceLen := len(Orgs.Org[i].Spaces)
+			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
-				for j := 0; j < SpaceLen; j++ {
+			if err != nil {
+				fmt.Println(err)
+			}
 
-					guid = exec.Command("cf", "space", Orgs.Org[i].Spaces[j].Name, "--guid")
-					if _, err := guid.Output(); err == nil {
-						fmt.Println("command: ", guid)
-						fmt.Println("Space exists: ", guid.Stdout)
-						fmt.Println("Creating Space users")
+			err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+			if err != nil {
+				panic(err)
+			}
+			if list.OrgList[i] == Orgs.Org.Name {
+				guid := exec.Command("cf", "org", Orgs.Org.Name, "--guid")
 
-						fmt.Println("Updating LDAP Users")
+				if _, err := guid.Output(); err == nil {
 
-						LDAPSpaceUsersLen := len(Orgs.Org[i].Spaces[j].SpaceUsers.LDAP)
-
-						for k := 0; k < LDAPSpaceUsersLen; k++ {
-							cmd := exec.Command("cf", "set-space-role", Orgs.Org[i].Spaces[j].SpaceUsers.LDAP[k].Name, Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].SpaceUsers.LDAP[k].Role)
-							if _, err := cmd.Output(); err != nil{
-								fmt.Println("command: ", cmd)
-								fmt.Println("Err: ", cmd.Stdout)
-								fmt.Println("Err Code: ", err)
-							} else {
-								fmt.Println("command: ", cmd)
-								fmt.Println(cmd.Stdout)
-							}
-						}
-
-						fmt.Println("Updating UAA Users")
-
-						UAASpaceUsersLen := len(Orgs.Org[i].Spaces[j].SpaceUsers.UAA)
-
-						for l := 0; l < UAASpaceUsersLen; l++ {
-							cmd := exec.Command("cf", "set-space-role", Orgs.Org[i].Spaces[j].SpaceUsers.UAA[l].Name, Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].SpaceUsers.UAA[l].Role)
-							if _, err := cmd.Output(); err != nil{
-								fmt.Println("command: ", cmd)
-								fmt.Println("Err: ", cmd.Stdout)
-								fmt.Println("Err Code: ", err)
-							} else {
-								fmt.Println("command: ", cmd)
-								fmt.Println(cmd.Stdout)
-							}
-						}
-
-						fmt.Println("Updating SSO Users")
-
-						SSOSpaceUsersLen := len(Orgs.Org[i].Spaces[j].SpaceUsers.SSO)
-						for m := 0; m < SSOSpaceUsersLen; m++ {
-							cmd := exec.Command("cf", "set-space-role", Orgs.Org[i].Spaces[j].SpaceUsers.SSO[m].Name, Orgs.Org[i].Name, Orgs.Org[i].Spaces[j].Name, Orgs.Org[i].Spaces[j].SpaceUsers.SSO[m].Role)
-							if _, err := cmd.Output(); err != nil{
-								fmt.Println("command: ", cmd)
-								fmt.Println("Err: ", cmd.Stdout)
-								fmt.Println("Err Code: ", err)
-							} else {
-								fmt.Println("command: ", cmd)
-								fmt.Println(cmd.Stdout)
-							}
-						}
-
+					fmt.Println("command: ", guid)
+					fmt.Println("Org exists: ", guid.Stdout)
+					targetOrg := exec.Command("cf", "t", "-o", Orgs.Org.Name)
+					if _, err := targetOrg.Output(); err == nil {
+						fmt.Println("command: ", targetOrg)
+						fmt.Println("Targeted Org: ", targetOrg.Stdout)
 					} else {
-						fmt.Println("command: ",guid)
-						fmt.Println("Err: ", guid.Stdout)
-						fmt.Println("Err Code: ", err)
-						fmt.Println("Space doesn't exists, Please create Space")
+						fmt.Println("command: ", targetOrg)
+						fmt.Println("Err: ", targetOrg.Stdout)
+						fmt.Println("Err Code: ", targetOrg.Stderr)
 					}
+					SpaceLen := len(Orgs.Org.Spaces)
+
+					for j := 0; j < SpaceLen; j++ {
+
+						guid = exec.Command("cf", "space", Orgs.Org.Spaces[j].Name, "--guid")
+						if _, err := guid.Output(); err == nil {
+							fmt.Println("command: ", guid)
+							fmt.Println("Space exists: ", guid.Stdout)
+							fmt.Println("Creating Space users")
+
+							fmt.Println("Updating LDAP Users")
+
+							LDAPSpaceManLen := len(Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceManagers)
+
+							for k := 0; k < LDAPSpaceManLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceManager")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							LDAPSpaceDevLen := len(Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceAuditors)
+
+							for k := 0; k < LDAPSpaceDevLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceDeveloper")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							LDAPSpaceAuditLen := len(Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceDevelopers)
+
+							for k := 0; k < LDAPSpaceAuditLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.LDAP.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceAuditor")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+
+							fmt.Println("Updating UAA Users")
+
+							UAASpaceManLen := len(Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceManagers)
+
+							for k := 0; k < UAASpaceManLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceManager")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							UAASpaceDevLen := len(Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceDevelopers)
+
+							for k := 0; k < UAASpaceDevLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceDeveloper")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							UAASpaceAuditLen := len(Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceAuditors)
+
+							for k := 0; k < UAASpaceAuditLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.UAA.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceAuditor")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							fmt.Println("Updating SSO Users")
+
+							SSOSpaceManLen := len(Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceManagers)
+
+							for k := 0; k < SSOSpaceManLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceManager")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							SSOSpaceDevLen := len(Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceDevelopers)
+
+							for k := 0; k < SSOSpaceDevLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceDeveloper")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+							SSOSpaceAuditLen := len(Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceAuditors)
+
+							for k := 0; k < SSOSpaceAuditLen; k++ {
+								cmd := exec.Command("cf", "set-space-role", Orgs.Org.Spaces[j].SpaceUsers.SSO.SpaceManagers[k], Orgs.Org.Name, Orgs.Org.Spaces[j].Name, "SpaceAuditor")
+								if _, err := cmd.Output(); err != nil{
+									fmt.Println("command: ", cmd)
+									fmt.Println("Err: ", cmd.Stdout)
+									fmt.Println("Err Code: ", err)
+								} else {
+									fmt.Println("command: ", cmd)
+									fmt.Println(cmd.Stdout)
+								}
+							}
+
+						} else {
+							fmt.Println("command: ",guid)
+							fmt.Println("Err: ", guid.Stdout)
+							fmt.Println("Err Code: ", err)
+							fmt.Println("Space doesn't exists, Please create Space")
+						}
+					}
+				} else {
+					fmt.Println("command: ", guid)
+					fmt.Println("Err: ", guid.Stdout)
+					fmt.Println("Err Code: ", err)
+					fmt.Println("Org doesn't exists, Please create Org")
 				}
 			} else {
-				fmt.Println("command: ", guid)
-				fmt.Println("Err: ", guid.Stdout)
-				fmt.Println("Err Code: ", err)
-				fmt.Println("Org doesn't exists, Please create Org")
+				fmt.Println("Org Name does't match with folder name")
 			}
 		}
 	}
@@ -1115,6 +1303,150 @@ func CreateOrUpdateASGs(Org string, Space string, asgpath string, ostype string)
 	}
 	return
 }
+func OrgsInit(clustername string, cpath string) error {
+
+	var list List
+	var ProtectedOrgs ProtectedList
+
+	ListYml := cpath + "/C9Cli/" + clustername + "/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
+	if err != nil {
+		panic(err)
+	}
+
+	ProtectedOrgsYml := cpath + "/C9Cli/" + clustername + "/ProtectedResources.yml"
+	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileProtectedYml), &ProtectedOrgs)
+	if err != nil {
+		panic(err)
+	}
+
+	LenList := len(list.OrgList)
+	LenProtectedOrgs := len(ProtectedOrgs.Org)
+
+	for i := 0; i < LenList; i++ {
+		var count, totalcount int
+		fmt.Println("Org: ", list.OrgList[i])
+		for p := 0; p < LenProtectedOrgs; p++ {
+			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
+				count = 1
+			} else {
+				count = 0
+			}
+		}
+		totalcount = totalcount + count
+
+		if totalcount == 0 {
+			fmt.Println("This is not Protected Org")
+
+			mgmtpath := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i]
+			ASGPath := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i] + "/ASGs/"
+			OrgsYml := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i] +"/Org.yml"
+
+			_, err = os.Stat(mgmtpath)
+			if os.IsNotExist(err) {
+
+				fmt.Println("Creating C9Cli/<cluster>/<Org> folder")
+				errDir := os.MkdirAll(mgmtpath, 0755)
+
+				var OrgTmp = `---
+Org:
+  Name: ""
+  Quota: ""
+  OrgUsers:
+    LDAP:
+      OrgManagers:
+        - User1
+        - User2
+        - User3
+      OrgAuditors:
+        - User1
+        - User2
+    SSO:
+      OrgManagers:
+        - User1
+        - User2
+        - User3
+      OrgAuditors:
+        - User1
+        - User2
+    UAA:
+      OrgManagers:
+        - User1
+        - User2
+        - User3
+      OrgAuditors:
+        - User1
+        - User2
+  Spaces:
+    - Name: Space1
+      IsolationSeg: "test-segment-1"
+      SpaceUsers:
+        LDAP:
+          SpaceManagers:
+            - User1
+            - User2
+            - User3
+          SpaceDevelopers:
+            - User1
+            - User2
+            - User3
+          SpaceAuditors:
+            - User1
+            - User2
+            - User3
+    - Name: Space2
+      IsolationSeg: "test-segment-2"
+      SpaceUsers:
+        LDAP:
+          SpaceManagers:
+            - User1
+            - User2
+            - User3
+          SpaceDevelopers:
+            - User1
+            - User2
+            - User3
+          SpaceAuditors:
+            - User1
+            - User2
+            - User3`
+
+				fmt.Println("Creating C9Cli/<cluster>/<Org> sample yaml files")
+				err = ioutil.WriteFile(OrgsYml, []byte(OrgTmp), 0644)
+				check(err)
+
+				if errDir != nil {
+					log.Fatal(err)
+				}
+			} else {
+				fmt.Println("C9Cli/<cluster>/<Org> exists, please manually edit file to make changes or provide new cluster name")
+			}
+			_, err = os.Stat(ASGPath)
+			if os.IsNotExist(err) {
+				errDir := os.MkdirAll(ASGPath, 0755)
+				if errDir != nil {
+					log.Fatal(err)
+					fmt.Println("C9Cli/<cluster>/<Org>/ASGs exist, please manually edit file to make changes or provide new cluster name")
+				} else {
+					fmt.Println("Creating C9Cli/<cluster>/<Org>/ASGs")
+				}
+			}
+		}
+	}
+	return nil
+}
 func Init(clustername string, endpoint string, user string, org string, space string, asg string, cpath string) (err error) {
 
 	type ClusterDetails struct {
@@ -1127,10 +1459,10 @@ func Init(clustername string, endpoint string, user string, org string, space st
 
 
 	mgmtpath := cpath+"/C9Cli/"+clustername
-	ASGPath := cpath+"/C9Cli/"+clustername+"/ASGs/"
-	OrgsYml := cpath+"/C9Cli/"+clustername+"/Org.yml"
+	ASGPath := cpath+"/C9Cli/"+clustername+"/ProtectedOrgsASGs/"
 	QuotasYml := cpath+"/C9Cli/"+clustername+"/Quota.yml"
 	ProtectedResourcesYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ListOrgsYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
 
 
 	_, err = os.Stat(mgmtpath)
@@ -1187,89 +1519,11 @@ ClusterDetails:
 			panic(err)
 		}
 
-
-
-		var OrgTmp = `---
-Org:
-  - Name: "org-test"
-    Quota: "default"
-    OrgUsers:
-      LDAP:
-        - Name: User1
-          Role: OrgManager
-        - Name: User2
-          Role: OrgManager
-        - Name: User3
-          Role: OrgAudidor
-      SSO:
-        - Name: User1
-          Role: OrgManager
-        - Name: User2
-          Role: OrgManager
-        - Name: User3
-          Role: OrgAudidor
-      UAA:
-        - Name: User1
-          Role: OrgManager
-        - Name: User2
-          Role: OrgManager
-        - Name: User3
-          Role: OrgAudidor
-    Spaces:
-      - Name: Space1
-        IsolationSeg: "test-segment-1"
-        SpaceUsers:
-          LDAP:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor
-          SSO:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor
-          UAA:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor
-      - Name: Space2
-		IsolationSeg: "test-segment-2"
-        SpaceUsers:
-          LDAP:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor
-          SSO:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor
-          UAA:
-            - Name: User1
-              Role: SpaceManager
-            - Name: User2
-              Role: SpaceManager
-            - Name: User3
-              Role: SpaceAudidor`
-
 		var QuotasTmp = `---
 quota:
   - Name: default
     memory_limit: 1024M
-	allow_paid_plans: False
+    allow_paid_plans: False
     app_instance_limit: 25
     service_instance_limit: 25
   - Name: small_quota
@@ -1288,12 +1542,18 @@ quota:
     - default
   DefaultRunningSecurityGroup: default_security_group`
 
+		var ListTmp = `---
+OrgList:
+  - Org-1
+  - Org-2
+  - Org-3`
+
 		fmt.Println("Creating C9Cli/<cluster>/ sample yaml files")
-		err = ioutil.WriteFile(OrgsYml, []byte(OrgTmp), 0644)
-		check(err)
 		err = ioutil.WriteFile(QuotasYml, []byte(QuotasTmp), 0644)
 		check(err)
 		err = ioutil.WriteFile(ProtectedResourcesYml, []byte(ProtectedListTmp), 0644)
+		check(err)
+		err = ioutil.WriteFile(ListOrgsYml, []byte(ListTmp), 0644)
 		check(err)
 
 		if errDir != nil {
