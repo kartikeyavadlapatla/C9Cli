@@ -93,8 +93,8 @@ func main()  {
 	flag.StringVar(&org, "o", "org", "Use with init operation, Provide Org")
 	flag.StringVar(&space, "s", "space", "Use with init operation, Provide Space")
 	flag.StringVar(&asg, "a", "true", "Use with init operation, Enable ASGs ?.")
-	flag.StringVar(&operation, "i", "init", "Provide Operation to be performed: init, create-{org,space,org-user,space-user,quota, ")
-	flag.StringVar(&cpath, "k", ".", "Provide path to configs, i.e, to C9Cli folder, use with all operations")
+	flag.StringVar(&operation, "i", "", "Provide Operation to be performed: init, create-{org,space,org-user,space-user,quota, ")
+	flag.StringVar(&cpath, "k", ".", "Provide path to configs, i.e, to config folder, use with all operations")
 	flag.Parse()
 
 	ClusterName := strings.ReplaceAll(endpoint, ".", "-")
@@ -199,11 +199,11 @@ func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 
 	var ProtectedOrgs ProtectedList
 	var ASGpath string
-	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
 	var InitClusterConfigVals InitClusterConfigVals
-	ConfigFile := cpath+"/C9Cli/"+clustername+"/config.yml"
+	ConfigFile := cpath+"/"+clustername+"/config.yml"
 
 	fileConfigYml, err := ioutil.ReadFile(ConfigFile)
 	if err != nil {
@@ -221,9 +221,9 @@ func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 	}
 
 	if ostype == "windows" {
-		ASGpath = cpath+"\\C9Cli\\"+clustername+"\\ProtectedOrgsASGs\\"
+		ASGpath = cpath+"\\"+clustername+"\\ProtectedOrgsASGs\\"
 	} else {
-		ASGpath = cpath+"/C9Cli/"+clustername+"/ProtectedOrgsASGs/"
+		ASGpath = cpath+"/"+clustername+"/ProtectedOrgsASGs/"
 	}
 
 	LenProtectedOrgs := len(ProtectedOrgs.Org)
@@ -301,7 +301,7 @@ func CreateOrUpdateProtOrgAsg(clustername string, cpath string, ostype string) {
 func SetupConnection(clustername string, pwd string, cpath string) error {
 
 	var InitClusterConfigVals InitClusterConfigVals
-	ConfigFile := cpath+"/C9Cli/"+clustername+"/config.yml"
+	ConfigFile := cpath+"/"+clustername+"/config.yml"
 
 	fileConfigYml, err := ioutil.ReadFile(ConfigFile)
 	if err != nil {
@@ -339,7 +339,7 @@ func CreateOrUpdateOrgs(clustername string, cpath string) error {
 	var list List
 	var ProtectedOrgs ProtectedList
 
-	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	ListYml := cpath+"/"+clustername+"/OrgsList.yml"
 	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
@@ -350,7 +350,7 @@ func CreateOrUpdateOrgs(clustername string, cpath string) error {
 		panic(err)
 	}
 
-	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
 	if err != nil {
@@ -381,7 +381,7 @@ func CreateOrUpdateOrgs(clustername string, cpath string) error {
 		if totalcount == 0 {
 			fmt.Println("This is not Protected Org")
 
-			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			OrgsYml := cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
 			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
 			if err != nil {
@@ -449,7 +449,7 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	var ProtectedOrgs ProtectedList
 	var list List
 
-	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	ListYml := cpath+"/"+clustername+"/OrgsList.yml"
 	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
@@ -461,7 +461,7 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	}
 
 	var InitClusterConfigVals InitClusterConfigVals
-	ConfigFile := cpath+"/C9Cli/"+clustername+"/config.yml"
+	ConfigFile := cpath+"/"+clustername+"/config.yml"
 
 	fileConfigYml, err := ioutil.ReadFile(ConfigFile)
 	if err != nil {
@@ -474,7 +474,7 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	}
 	var ASGPath, OrgsYml string
 
-	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 	if err != nil {
 		fmt.Println(err)
@@ -507,11 +507,11 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 			fmt.Println("This is not Protected Org")
 
 			if ostype == "windows" {
-				ASGPath = cpath+"\\C9Cli\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
-				OrgsYml = cpath+"\\C9Cli\\"+clustername+"\\"+list.OrgList[i]+"\\Org.yml"
+				ASGPath = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
+				OrgsYml = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\Org.yml"
 			} else {
-				ASGPath = cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
-				OrgsYml = cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+				ASGPath = cpath+"/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
+				OrgsYml = cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
 			}
 
 
@@ -671,7 +671,7 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 	var cmd *exec.Cmd
 
 
-	QuotaYml := cpath+"/C9Cli/"+clustername+"/Quota.yml"
+	QuotaYml := cpath+"/"+clustername+"/Quota.yml"
 	fileQuotaYml, err := ioutil.ReadFile(QuotaYml)
 
 	if err != nil {
@@ -683,7 +683,7 @@ func CreateOrUpdateQuotas(clustername string, cpath string) error {
 		panic(err)
 	}
 
-	ProtectedQuotasYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedQuotasYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedQYml, err := ioutil.ReadFile(ProtectedQuotasYml)
 
 	if err != nil {
@@ -808,7 +808,7 @@ func CreateOrUpdateOrgUsers(clustername string, cpath string) error {
 	var Orgs Orglist
 	var ProtectedOrgs ProtectedList
 
-	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	ListYml := cpath+"/"+clustername+"/OrgsList.yml"
 	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
@@ -819,7 +819,7 @@ func CreateOrUpdateOrgUsers(clustername string, cpath string) error {
 		panic(err)
 	}
 
-	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
 	if err != nil {
@@ -852,7 +852,7 @@ func CreateOrUpdateOrgUsers(clustername string, cpath string) error {
 
 			fmt.Println("This is not Protected Org")
 
-			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			OrgsYml := cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
 			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
 			if err != nil {
@@ -994,7 +994,7 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 	var ProtectedOrgs ProtectedList
 	var list List
 
-	ListYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	ListYml := cpath+"/"+clustername+"/OrgsList.yml"
 	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
@@ -1005,7 +1005,7 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 		panic(err)
 	}
 
-	ProtectedOrgsYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
 	if err != nil {
@@ -1037,7 +1037,7 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 		if totalcount == 0 {
 
 
-			OrgsYml := cpath+"/C9Cli/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			OrgsYml := cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
 			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
 
 			if err != nil {
@@ -1308,7 +1308,7 @@ func OrgsInit(clustername string, cpath string) error {
 	var list List
 	var ProtectedOrgs ProtectedList
 
-	ListYml := cpath + "/C9Cli/" + clustername + "/OrgsList.yml"
+	ListYml := cpath + "/" + clustername + "/OrgsList.yml"
 	fileOrgYml, err := ioutil.ReadFile(ListYml)
 	if err != nil {
 		fmt.Println(err)
@@ -1319,7 +1319,7 @@ func OrgsInit(clustername string, cpath string) error {
 		panic(err)
 	}
 
-	ProtectedOrgsYml := cpath + "/C9Cli/" + clustername + "/ProtectedResources.yml"
+	ProtectedOrgsYml := cpath + "/" + clustername + "/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 
 	if err != nil {
@@ -1350,15 +1350,19 @@ func OrgsInit(clustername string, cpath string) error {
 		if totalcount == 0 {
 			fmt.Println("This is not Protected Org")
 
-			mgmtpath := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i]
-			ASGPath := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i] + "/ASGs/"
-			OrgsYml := cpath + "/C9Cli/" + clustername + "/" + list.OrgList[i] +"/Org.yml"
+			mgmtpath := cpath + "/" + clustername + "/" + list.OrgList[i]
+			ASGPath := cpath + "/" + clustername + "/" + list.OrgList[i] + "/ASGs/"
+			OrgsYml := cpath + "/" + clustername + "/" + list.OrgList[i] +"/Org.yml"
+			JsonPath := cpath + "/" + clustername + "/" + list.OrgList[i] + "/ASGs/" + "test_test.json"
 
 			_, err = os.Stat(mgmtpath)
 			if os.IsNotExist(err) {
 
-				fmt.Println("Creating C9Cli/<cluster>/<Org> folder")
+				fmt.Println("Creating <cluster>/<Org> folder")
 				errDir := os.MkdirAll(mgmtpath, 0755)
+				if errDir != nil {
+					log.Fatal(err)
+				}
 
 				var OrgTmp = `---
 Org:
@@ -1423,24 +1427,34 @@ Org:
             - User2
             - User3`
 
-				fmt.Println("Creating C9Cli/<cluster>/<Org> sample yaml files")
+				fmt.Println("Creating <cluster>/<Org> sample yaml files")
 				err = ioutil.WriteFile(OrgsYml, []byte(OrgTmp), 0644)
 				check(err)
-
-				if errDir != nil {
-					log.Fatal(err)
-				}
 			} else {
-				fmt.Println("C9Cli/<cluster>/<Org> exists, please manually edit file to make changes or provide new cluster name")
+				fmt.Println("<cluster>/<Org> exists, please manually edit file to make changes or provide new cluster name")
 			}
 			_, err = os.Stat(ASGPath)
 			if os.IsNotExist(err) {
 				errDir := os.MkdirAll(ASGPath, 0755)
 				if errDir != nil {
 					log.Fatal(err)
-					fmt.Println("C9Cli/<cluster>/<Org>/ASGs exist, please manually edit file to make changes or provide new cluster name")
+					fmt.Println("<cluster>/<Org>/ASGs exist, please manually edit file to make changes or provide new cluster name")
 				} else {
-					fmt.Println("Creating C9Cli/<cluster>/<Org>/ASGs")
+					fmt.Println("Creating <cluster>/<Org>/ASGs")
+					var AsgTmp = `---
+[
+  {
+    "protocol": "tcp",
+    "destination": "10.x.x.88",
+    "ports": "1443",
+	"log": true,
+	"description": "Allow DNS lookup by default."
+  }
+]`
+
+					fmt.Println("Creating <cluster>/<Org>/ASGs sample json file")
+					err = ioutil.WriteFile(JsonPath, []byte(AsgTmp), 0644)
+					check(err)
 				}
 			}
 		}
@@ -1458,17 +1472,17 @@ func Init(clustername string, endpoint string, user string, org string, space st
 	}
 
 
-	mgmtpath := cpath+"/C9Cli/"+clustername
-	ASGPath := cpath+"/C9Cli/"+clustername+"/ProtectedOrgsASGs/"
-	QuotasYml := cpath+"/C9Cli/"+clustername+"/Quota.yml"
-	ProtectedResourcesYml := cpath+"/C9Cli/"+clustername+"/ProtectedResources.yml"
-	ListOrgsYml := cpath+"/C9Cli/"+clustername+"/OrgsList.yml"
+	mgmtpath := cpath+"/"+clustername
+	ASGPath := cpath+"/"+clustername+"/ProtectedOrgsASGs/"
+	QuotasYml := cpath+"/"+clustername+"/Quota.yml"
+	ProtectedResourcesYml := cpath+"/"+clustername+"/ProtectedResources.yml"
+	ListOrgsYml := cpath+"/"+clustername+"/OrgsList.yml"
 
 
 	_, err = os.Stat(mgmtpath)
 	if os.IsNotExist(err) {
 
-		fmt.Println("Creating C9Cli/<cluster> folder")
+		fmt.Println("Creating <cluster> folder")
 		errDir := os.MkdirAll(mgmtpath, 0755)
 
 
@@ -1511,7 +1525,7 @@ ClusterDetails:
 			panic(err)
 		}
 
-		fmt.Println("Creating C9Cli folder and config files")
+		fmt.Println("Initializing folder and config files")
 
 		err = s1.Execute(f, values)
 		defer f.Close() // don't forget to close the file when finished.
@@ -1548,7 +1562,7 @@ OrgList:
   - Org-2
   - Org-3`
 
-		fmt.Println("Creating C9Cli/<cluster>/ sample yaml files")
+		fmt.Println("Creating <cluster>/ sample yaml files")
 		err = ioutil.WriteFile(QuotasYml, []byte(QuotasTmp), 0644)
 		check(err)
 		err = ioutil.WriteFile(ProtectedResourcesYml, []byte(ProtectedListTmp), 0644)
@@ -1560,7 +1574,7 @@ OrgList:
 			log.Fatal(err)
 		}
 	} else {
-		fmt.Println("C9Cli/<cluster> exists, please manually edit file to make changes or provide new cluster name")
+		fmt.Println("<cluster> exists, please manually edit file to make changes or provide new cluster name")
 	}
 
 	_, err = os.Stat(ASGPath)
@@ -1568,9 +1582,9 @@ OrgList:
 		errDir := os.MkdirAll(ASGPath, 0755)
 		if errDir != nil {
 			log.Fatal(err)
-			fmt.Println("C9Cli/<cluster>/ASGs exist, please manually edit file to make changes or provide new cluster name")
+			fmt.Println("<cluster>/ASGs exist, please manually edit file to make changes or provide new cluster name")
 		} else {
-			fmt.Println("Creating C9Cli/<cluster>/ASGs")
+			fmt.Println("Creating <cluster>/ASGs")
 		}
 	}
 
@@ -1578,7 +1592,7 @@ OrgList:
 }
 func check(e error) {
 	if e != nil {
-		fmt.Println("C9Cli/mgmt/<cluster>/ yamls exists, please manually edit file to make changes or provide new cluster name")
+		fmt.Println("<cluster>/ yamls exists, please manually edit file to make changes or provide new cluster name")
 		panic(e)
 	}
 }
