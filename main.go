@@ -182,7 +182,13 @@ func main()  {
 		SetupConnection (ClusterName,  pwd, cpath)
 		CreateOrUpdateProtOrgAsg (ClusterName, cpath, ostype)
 
-	} else if operation == "create-all" {
+	} else if operation == "create-space-asg"{
+
+		fmt.Printf("ClusterName: %v\n", ClusterName)
+		SetupConnection (ClusterName,  pwd, cpath)
+		CreateOrUpdateSpacesASGs (ClusterName, cpath, ostype)
+
+	}else if operation == "create-all" {
 		fmt.Printf("ClusterName: %v\n", ClusterName)
 		SetupConnection (ClusterName,  pwd, cpath)
 		CreateOrUpdateProtOrgAsg (ClusterName, cpath, ostype)
@@ -190,6 +196,7 @@ func main()  {
 		CreateOrUpdateOrgs (ClusterName, cpath)
 		CreateOrUpdateOrgUsers(ClusterName, cpath)
 		CreateOrUpdateSpaces (ClusterName, cpath, ostype)
+		CreateOrUpdateSpacesASGs (ClusterName, cpath, ostype)
 		CreateOrUpdateSpaceUsers (ClusterName, cpath)
 	} else {
 		fmt.Println("Provide Valid input operation")
@@ -472,8 +479,9 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	if err != nil {
 		panic(err)
 	}
-	var ASGPath, OrgsYml string
-
+	var OrgsYml string
+	//var ASGPath, OrgsYml string
+	
 	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 	if err != nil {
@@ -507,10 +515,10 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 			fmt.Println("This is not Protected Org")
 
 			if ostype == "windows" {
-				ASGPath = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
+				//ASGPath = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
 				OrgsYml = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\Org.yml"
 			} else {
-				ASGPath = cpath+"/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
+				//ASGPath = cpath+"/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
 				OrgsYml = cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
 			}
 
@@ -584,16 +592,14 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 							}
 
 
-							fmt.Println("Creating or updating ASGs")
-
-
-							if InitClusterConfigVals.ClusterDetails.EnableASG == true {
-								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-								CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
-							} else {
-								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-								fmt.Println("ASGs not enabled")
-							}
+							//fmt.Println("Creating or updating ASGs")
+							//if InitClusterConfigVals.ClusterDetails.EnableASG == true {
+							//	fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+							//	CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
+							//} else {
+							//	fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+							//	fmt.Println("ASGs not enabled")
+							//}
 						} else {
 							fmt.Println("command: ", guid)
 							fmt.Println("Pulling Space Guid ID: ", guid.Stdout )
@@ -637,15 +643,14 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 									fmt.Println("No Isolation Segment Provided, Will be attached to Default")
 								}
 
-								fmt.Println("Creating ASGs")
-
-								if InitClusterConfigVals.ClusterDetails.EnableASG == true {
-									fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-									CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
-								} else {
-									fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
-									fmt.Println("ASGs not enabled")
-								}
+				//				fmt.Println("Creating ASGs")
+				//				if InitClusterConfigVals.ClusterDetails.EnableASG == true {
+				//					fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+				//					CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
+				//				} else {
+				//					fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+				//					fmt.Println("ASGs not enabled")
+				//				}
 							}
 						}
 					}
@@ -1223,6 +1228,145 @@ func CreateOrUpdateSpaceUsers(clustername string, cpath string) error {
 			} else {
 				fmt.Println("Org Name does't match with folder name")
 			}
+		}
+	}
+	return err
+}
+func CreateOrUpdateSpacesASGs(clustername string, cpath string, ostype string) error {
+
+	var Orgs Orglist
+	var ProtectedOrgs ProtectedList
+	var list List
+
+	ListYml := cpath+"/"+clustername+"/OrgsList.yml"
+	fileOrgYml, err := ioutil.ReadFile(ListYml)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileOrgYml), &list)
+	if err != nil {
+		panic(err)
+	}
+
+	var InitClusterConfigVals InitClusterConfigVals
+	ConfigFile := cpath+"/"+clustername+"/config.yml"
+
+	fileConfigYml, err := ioutil.ReadFile(ConfigFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileConfigYml), &InitClusterConfigVals)
+	if err != nil {
+		panic(err)
+	}
+	var ASGPath, OrgsYml string
+
+	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
+	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = yaml.Unmarshal([]byte(fileProtectedYml), &ProtectedOrgs)
+	if err != nil {
+		panic(err)
+	}
+
+	LenList := len(list.OrgList)
+	LenProtectedOrgs := len(ProtectedOrgs.Org)
+
+
+	for i := 0; i < LenList; i++ {
+
+		var count, totalcount int
+		fmt.Println("Org: ", list.OrgList[i])
+		for p := 0; p < LenProtectedOrgs; p++ {
+			fmt.Println("Protected Org: ", ProtectedOrgs.Org[p])
+			if ProtectedOrgs.Org[p] == list.OrgList[i] {
+				count = 1
+			} else {
+				count = 0
+			}
+		}
+		totalcount = totalcount + count
+
+		if totalcount == 0 {
+			fmt.Println("This is not Protected Org")
+
+			if ostype == "windows" {
+				ASGPath = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\ASGs\\"
+				OrgsYml = cpath+"\\"+clustername+"\\"+list.OrgList[i]+"\\Org.yml"
+			} else {
+				ASGPath = cpath+"/"+clustername+"/"+list.OrgList[i]+"/ASGs/"
+				OrgsYml = cpath+"/"+clustername+"/"+list.OrgList[i]+"/Org.yml"
+			}
+
+
+			fileOrgYml, err := ioutil.ReadFile(OrgsYml)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			err = yaml.Unmarshal([]byte(fileOrgYml), &Orgs)
+			if err != nil {
+				panic(err)
+			}
+			if list.OrgList[i] == Orgs.Org.Name {
+				guid := exec.Command("cf", "org", Orgs.Org.Name, "--guid")
+
+				if _, err := guid.Output(); err == nil {
+
+					fmt.Println("command: ", guid)
+					fmt.Println("Org exists: ", guid.Stdout)
+					SpaceLen := len(Orgs.Org.Spaces)
+
+					TargetOrg := exec.Command("cf", "t", "-o", Orgs.Org.Name)
+					if _, err := TargetOrg.Output(); err == nil {
+						fmt.Println("command: ", TargetOrg)
+						fmt.Println("Targeting: ", TargetOrg.Stdout)
+					} else {
+						fmt.Println("command: ", TargetOrg)
+						fmt.Println("Err: ", TargetOrg.Stdout)
+						fmt.Println("Err Code: ", err)
+					}
+
+					for j := 0; j < SpaceLen; j++ {
+
+						fmt.Println("Creating Spaces ASGs")
+						guid = exec.Command("cf", "space", Orgs.Org.Spaces[j].Name, "--guid")
+
+						if _, err := guid.Output(); err == nil{
+
+							fmt.Println("command: ", guid)
+							fmt.Println("Space exists: ", guid.Stdout)
+							fmt.Println("Creating or updating ASGs")
+							if InitClusterConfigVals.ClusterDetails.EnableASG == true {
+								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+								CreateOrUpdateASGs(Orgs.Org.Name, Orgs.Org.Spaces[j].Name, ASGPath, ostype)
+							} else {
+								fmt.Println("Enable ASGs: ", InitClusterConfigVals.ClusterDetails.EnableASG)
+								fmt.Println("ASGs not enabled")
+							}
+						} else {
+							fmt.Println("command: ", guid)
+							fmt.Println("Pulling Space Guid ID: ", guid.Stdout )
+							fmt.Println("Space doesn't exist, please create space")
+						}
+					}
+				} else {
+					fmt.Println("command: ", guid )
+					fmt.Println("Err: ", guid.Stdout)
+					fmt.Println("Err Code: ", err)
+					fmt.Println("Org doesn't exists, Please create Org")
+				}
+			} else {
+				fmt.Println("Org Name does't match with folder name")
+			}
+		} else {
+			fmt.Println("This is a protected Org")
 		}
 	}
 	return err
