@@ -1,6 +1,6 @@
 package main
 
-//import "C"
+import "C"
 import (
 	"flag"
 	"fmt"
@@ -38,7 +38,7 @@ type Orglist struct {
 		Spaces []struct {
 			Name         string `yaml:"Name"`
 			IsolationSeg string `yaml:"IsolationSeg"`
-			SpaceUsers   struct {
+			SpaceUsers struct {
 				LDAP struct {
 					SpaceManagers   []string `yaml:"SpaceManagers"`
 					SpaceDevelopers []string `yaml:"SpaceDevelopers"`
@@ -54,7 +54,7 @@ type Orglist struct {
 					SpaceDevelopers []string `yaml:"SpaceDevelopers"`
 					SpaceAuditors   []string `yaml:"SpaceAuditors"`
 				} `yaml:"SSO"`
-			} `yaml:"SpaceUsers"`
+			} `yaml:"SpaceUsers,omitempty"`
 		} `yaml:"Spaces"`
 	} `yaml:"Org"`
 }
@@ -481,7 +481,7 @@ func CreateOrUpdateSpaces(clustername string, cpath string, ostype string) error
 	}
 	var OrgsYml string
 	//var ASGPath, OrgsYml string
-	
+
 	ProtectedOrgsYml := cpath+"/"+clustername+"/ProtectedResources.yml"
 	fileProtectedYml, err := ioutil.ReadFile(ProtectedOrgsYml)
 	if err != nil {
